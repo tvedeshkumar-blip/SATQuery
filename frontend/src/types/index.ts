@@ -1,0 +1,885 @@
+export type AnalysisMode = 'single' | 'optical_sar' | 'bitemporal' | 'orchestration' | 'temporal' | 'classification';
+
+export type TaskType = 
+  | 'vqa' 
+  | 'captioning' 
+  | 'grounding' 
+  | 'change_detection' 
+  | 'change_vqa' 
+  | 'optical_sar'
+  | 'temporal_optical_change'
+  | 'temporal_sar_change'
+  | 'sentinel2_ndvi'
+  | 'sentinel1_rtc_dprvi'
+  | 'orchestration'
+  | 'temporal_multimodal_clarification'
+  | 'classification'
+  | 'land_cover_classification';
+
+export interface UploadedFileState {
+  file?: File;
+  dataUrl: string;
+  previewDataUrl?: string;
+  previewUrl?: string;
+  filename: string;
+  size?: number;
+  role: 'primary' | 'secondary' | 'optical' | 'sar';
+  isGeoTIFF: boolean;
+  assetCategory?: 'visual_preview' | 'rgb_visual_raster' | 'single_band_spectral' | 'multispectral_cube' | 'scientific_raster' | 'unsupported';
+  stacProvenance?: Record<string, any>;
+  validation?: any;
+  scientificLimitations?: string[];
+}
+
+export interface AOIAnalysisConfig {
+  startDate: string;
+  endDate: string;
+  t1StartDate: string;
+  t1EndDate: string;
+  t2StartDate: string;
+  t2EndDate: string;
+  maxCloudCover: number;
+}
+
+export interface AnalysisRequest {
+  query: string;
+  images?: any[];
+  mode?: AnalysisMode;
+  target_role?: string;
+  user_model_preference?: string;
+  aoi_bbox?: number[];
+  start_date?: string;
+  end_date?: string;
+  t1_start_date?: string;
+  t1_end_date?: string;
+  t2_start_date?: string;
+  t2_end_date?: string;
+  max_cloud_cover?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface BoundingBox {
+  xmin: number;
+  ymin: number;
+  xmax: number;
+  ymax: number;
+  label?: string;
+  confidence?: number | null;
+}
+
+export type AOIBounds = [number, number, number, number]; // [min_lon, min_lat, max_lon, max_lat] in EPSG:4326
+
+export interface AOISelection {
+  bounds: AOIBounds;
+  label?: string;
+  crossesAntimeridian: boolean;
+  approxAreaKm2?: number;
+}
+
+export interface GeoTIFFMetadata {
+  filename: string;
+  crs: string | null;
+  bounds: [number, number, number, number] | null;
+  width: number;
+  height: number;
+  bands: number;
+  dtype: string;
+  nodata: number | null;
+  modality: 'OPTICAL' | 'SAR' | 'MULTISPECTRAL' | 'UNKNOWN';
+  acquisition_date?: string | null;
+  sensor?: string | null;
+}
+
+export interface VisualEvidence {
+  id: string;
+  type: 'original' | 'processed' | 'overlay' | 'mask' | 'boxes' | 'change_map' | 'fused' | 'composite_inspector';
+  title: string;
+  description?: string;
+  artifact_url?: string;
+  data_base64?: string;
+  boxes?: BoundingBox[];
+  statistics?: Record<string, number | string>;
+  inspector_data?: CompositeInspectorData;
+}
+
+export interface ExecutionTraceStep {
+  step_number: number;
+  tool: string;
+  status: 'completed' | 'failed' | 'retrying' | 'blocked' | 'success';
+  latency_ms: number;
+  summary?: string;
+  description?: string;
+  execution_time_ms?: number;
+  error?: string;
+}
+
+export interface TraceStep {
+  step?: string;
+  step_name?: string;
+  timestamp: string;
+  detail?: string;
+  details?: string;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+}
+
+export interface ExecutionTrace {
+  task: TaskType;
+  models_selected: string[];
+  steps: TraceStep[];
+  parameters: Record<string, any>;
+  execution_time_ms: number;
+  execution_steps?: ExecutionTraceStep[];
+  cumulative_transfer_bytes?: number;
+  transfer_budget_bytes?: number;
+}
+
+export interface ConfidenceBreakdown {
+  model_confidence?: number | null;
+  evidence_confidence?: number | null;
+  system_confidence?: number | null;
+  evidence_quality?: Record<string, any>;
+}
+
+export interface ConflictInfo {
+  conflict_detected: boolean;
+  conflict_type?: string | null;
+  conflict_details?: string | null;
+  reanalysis_performed: boolean;
+  reanalysis_tool?: string | null;
+}
+
+export interface TemporalOpticalChangePayload {
+  status: string;
+  is_calibrated: boolean;
+  summary: string;
+  delta_ndvi_mean?: number | null;
+  delta_ndvi_median?: number | null;
+  delta_ndvi_p10?: number | null;
+  delta_ndvi_p90?: number | null;
+  delta_ndvi_std?: number | null;
+  ndvi_t1_mean?: number | null;
+  ndvi_t2_mean?: number | null;
+  vegetation_loss_pct?: number | null;
+  vegetation_gain_pct?: number | null;
+  stable_vegetation_pct?: number | null;
+  loss_pixel_count?: number;
+  gain_pixel_count?: number;
+  stable_pixel_count?: number;
+  loss_threshold?: number;
+  gain_threshold?: number;
+  joint_valid_pixel_count?: number;
+  total_pixel_count?: number;
+  joint_clearance_pct?: number;
+  colorized_preview_base64?: string;
+  preview_base64?: string;
+  t1_datetime?: string | null;
+  t2_datetime?: string | null;
+  scl_filtering_applied?: boolean;
+  scientific_limitations?: string[];
+}
+
+export interface TemporalSARChangePayload {
+  status: string;
+  is_calibrated: boolean;
+  summary: string;
+  delta_dprvi_mean?: number | null;
+  delta_dprvi_median?: number | null;
+  delta_dprvi_p10?: number | null;
+  delta_dprvi_p90?: number | null;
+  radar_canopy_loss_pct?: number | null;
+  radar_canopy_gain_pct?: number | null;
+  stable_canopy_pct?: number | null;
+  loss_pixel_count?: number;
+  gain_pixel_count?: number;
+  stable_pixel_count?: number;
+  delta_vv_db?: number | null;
+  delta_vh_db?: number | null;
+  t1_dprvi_mean?: number | null;
+  t2_dprvi_mean?: number | null;
+  dprvi_assumption_violations?: Record<string, any>;
+  polarization_mode?: string;
+  calibration_quantity?: string;
+  sar_terrain_layover_shadow_mask?: string;
+  colorized_preview_base64?: string;
+  preview_base64?: string;
+  scientific_limitations?: string[];
+}
+
+export interface ClassificationPredictionItem {
+  label: string;
+  probability: number;
+}
+
+export interface ClassificationResult {
+  model_name: string;
+  primary_model?: string;
+  actual_model_used?: string;
+  task: string;
+  answer?: string;
+  confidence?: number;
+  confidence_label?: string;
+  implementation_status: string;
+  bands_used: string[];
+  input_shape: number[];
+  target_spatial_size: number[];
+  threshold: number;
+  predicted_classes: string[];
+  class_probabilities: Record<string, number>;
+  top_predictions: ClassificationPredictionItem[];
+  metadata?: Record<string, any>;
+}
+
+export interface AnalysisResponse {
+  id: string;
+  task: TaskType;
+  mode: AnalysisMode;
+  query?: string;
+  answer: string;
+  confidence: number | null;
+  confidence_label: string; // e.g. "Calibrated 92%" or "Not available"
+  models: string[];
+  implementation_status?: string;
+  primary_model?: string;
+  actual_model_used?: string;
+  fallback_used?: boolean;
+  model_status?: string;
+  model_provenance?: Record<string, any>;
+  evidence: VisualEvidence[];
+  classification_result?: ClassificationResult | null;
+  structured_evidence?: any;
+  trace: ExecutionTrace;
+  metadata?: Record<string, any>;
+  confidence_breakdown?: ConfidenceBreakdown;
+  conflict_info?: ConflictInfo;
+  verification?: VerificationResponse | null;
+  reproducible_report?: ScientificReport | null;
+  is_clarification_required?: boolean;
+  missing_parameters?: string[];
+  suggested_examples?: string[];
+  execution_time_ms: number;
+  created_at: string;
+}
+
+export interface PhysicalMeasurementReportItem {
+  name: string;
+  value: number | string;
+  unit: string;
+  statistic_type: string;
+  calibration_quantity?: string | null;
+  mask_applied: string;
+  source_artifact_ids: string[];
+}
+
+export interface ReportProvenance {
+  analysis_id?: string;
+  task?: string;
+  query?: string;
+  mode?: string;
+  created_at?: string;
+  sensor_identities?: string[];
+  source_asset_ids?: string[];
+  acquisition_timestamps?: string[];
+  crs?: string | null;
+  spatial_resolution_m?: number | string | null;
+  dimensions?: string | null;
+  registration_status?: Record<string, any>;
+  valid_pixel_count?: number | null;
+  total_pixel_count?: number | null;
+  valid_pixel_percentage?: number | null;
+  quality_screening?: Record<string, any>;
+  observed_pixel_count?: number | null;
+  excluded_quality_pixel_count?: number | null;
+  quality_clearance_percentage?: number | null;
+  provider_name?: string;
+  provider?: string;
+  actual_model_used?: string | null;
+  fallback_used?: boolean;
+  is_trained_model?: boolean;
+  model_status?: string | null;
+  ndvi_mean?: number | null;
+  ndvi_p90?: number | null;
+  vegetation_coverage_pct?: number | null;
+  ndvi_vegetation_threshold?: number | null;
+  reflectance_scale_factor?: number | null;
+  scl_masking_policy?: string | null;
+  b04_asset_id?: string | null;
+  b08_asset_id?: string | null;
+  scl_asset_id?: string | null;
+  ndvi_status?: string | null;
+  dprvi_mean?: number | null;
+  dprvi_p90?: number | null;
+  cross_pol_ratio_linear?: number | null;
+  cross_pol_ratio_db?: number | null;
+  sar_vv_mean_db?: number | null;
+  sar_vh_mean_db?: number | null;
+  sar_polarization_mode?: string | null;
+  sar_vegetation_proxy_coverage_pct?: number | null;
+  dprvi_vegetation_threshold?: number | null;
+  vv_asset_id?: string | null;
+  vh_asset_id?: string | null;
+  dprvi_status?: string | null;
+  sar_terrain_mask_status?: string | null;
+  delta_ndvi_mean?: number | null;
+  vegetation_loss_pct?: number | null;
+  vegetation_gain_pct?: number | null;
+  delta_dprvi_mean?: number | null;
+  radar_canopy_loss_pct?: number | null;
+  radar_canopy_gain_pct?: number | null;
+  temporal_t1_datetime?: string | null;
+  temporal_t2_datetime?: string | null;
+  joint_valid_pixel_count?: number | null;
+  dprvi_assumption_violations_count?: number | null;
+  temporal_optical_provenance?: Record<string, any>;
+  temporal_sar_provenance?: Record<string, any>;
+  modality?: string;
+}
+
+export interface ReportVerificationSummary {
+  verification_status: VerificationStatus;
+  deterministic_passed: boolean;
+  deterministic_failures: string[];
+  claims: ClaimVerificationItem[];
+  contradictions: string[];
+  unsupported_claims: string[];
+  missing_evidence: string[];
+  scientific_limitations: string[];
+  recommended_checks: string[];
+  is_interpretive_only: boolean;
+  interpretive_statement: string;
+  summary_explanation: string;
+}
+
+export interface ReportReproducibility {
+  software_version: string;
+  provider_config: Record<string, any>;
+  pipeline_steps: string[];
+  unavailable_fields: string[];
+}
+
+export interface ScientificReport {
+  report_id: string;
+  report_version: string;
+  generated_at: string;
+  provenance: ReportProvenance;
+  physical_measurements: PhysicalMeasurementReportItem[];
+  display_statistics: Array<{
+    name: string;
+    value: number | string;
+    scale: string;
+    purpose: string;
+  }>;
+  heuristic_indicators: Array<{
+    name: string;
+    percentage: number;
+    pixel_count: number;
+    definition: string;
+    is_certified_classification: boolean;
+    limitations: string;
+  }>;
+  evidence_artifacts: Array<{
+    artifact_id: string;
+    artifact_type: string;
+    title: string;
+    description?: string | null;
+    statistics?: Record<string, any>;
+  }>;
+  verification_summary?: ReportVerificationSummary | null;
+  reproducibility: ReportReproducibility;
+  executive_summary: string;
+  integrity_notice: string;
+}
+
+export type VerificationStatus = 'supported' | 'partially_supported' | 'unsupported' | 'not_run';
+export type ClaimStatus = 'supported' | 'partially_supported' | 'unsupported' | 'contradicted';
+
+export interface ClaimVerificationItem {
+  claim_text: string;
+  claim_type: string;
+  status: ClaimStatus;
+  cited_artifact_ids: string[];
+  evidence_found?: string | null;
+  reason?: string | null;
+}
+
+export interface VerificationResponse {
+  verification_status: VerificationStatus;
+  deterministic_passed: boolean;
+  deterministic_failures?: string[];
+  claims?: ClaimVerificationItem[];
+  contradictions?: string[];
+  unsupported_claims?: string[];
+  missing_evidence?: string[];
+  scientific_limitations?: string[];
+  recommended_checks?: string[];
+  summary_explanation: string;
+  is_interpretive_only: boolean;
+  interpretive_statement?: string;
+  llm_model_used?: string | null;
+  llm_run?: boolean;
+  execution_time_ms?: number;
+}
+
+export interface PresetPhoto {
+  id: string;
+  title: string;
+  mode: AnalysisMode;
+  modality: string;
+  sensor: string;
+  description: string;
+  imageUrl: string;
+  imageUrlSecondary?: string; // For bi-temporal or optical/sar pairs
+  sampleQueries: string[];
+  metadata?: Partial<GeoTIFFMetadata>;
+}
+
+export interface BenchmarkResult {
+  dataset: string;
+  task: string;
+  model: string;
+  metric: string;
+  score: string;
+  date: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  status?: 'success' | 'unavailable' | 'error' | 'generating';
+  model?: string;
+  provider?: string;
+  error?: string | null;
+}
+
+export interface WorkspaceSceneSummary {
+  role: string;
+  scene_id?: string;
+  filename: string;
+  datetime?: string;
+  collection?: string;
+  sensor?: string;
+  platform?: string;
+  modality?: string;
+  asset_key?: string;
+  asset_category?: string;
+  is_geotiff?: boolean;
+  crs?: string;
+  dimensions?: { width: number; height: number };
+  spatial_extent?: number[] | { [key: string]: any };
+  cloud_cover?: number;
+  scientific_limitations?: string[];
+}
+
+export interface WorkspaceContext {
+  mode: string;
+  scene_count: number;
+  scenes: WorkspaceSceneSummary[];
+  aoi_bbox?: number[];
+}
+
+export interface ChatRequestPayload {
+  message: string;
+  conversation_id?: string;
+  history?: { role: 'system' | 'user' | 'assistant'; content: string }[];
+  evidence?: Record<string, any> | any[] | null;
+  workspace_context?: WorkspaceContext | Record<string, any> | null;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface ChatResponsePayload {
+  response: string;
+  model: string;
+  provider: string;
+  status: 'success' | 'unavailable' | 'error';
+  conversation_id?: string;
+  error?: string | null;
+}
+
+export interface ChatHealthResponse {
+  status: 'online' | 'offline';
+  available: boolean;
+  provider: string;
+  base_url: string;
+  configured_model: string;
+}
+
+export interface STACAssetSummary {
+  key: string;
+  title?: string;
+  type: string;
+  roles: string[];
+  category: 'visual_preview' | 'scientific_raster' | 'unsupported';
+  href: string;
+  size_bytes?: number;
+}
+
+export interface STACSceneSummary {
+  id: string;
+  collection: string;
+  datetime: string;
+  bbox: [number, number, number, number];
+  cloud_cover?: number | null;
+  modality: 'OPTICAL' | 'SAR';
+  sensor: string;
+  platform?: string;
+  thumbnail_url?: string;
+  assets: Record<string, STACAssetSummary>;
+  provenance: Record<string, any>;
+}
+
+export interface STACSearchRequestPayload {
+  bbox: [number, number, number, number];
+  start_date?: string;
+  end_date?: string;
+  collection?: string;
+  max_cloud_cover?: number;
+  limit?: number;
+}
+
+export interface STACSearchResponsePayload {
+  status: 'success' | 'zero_results' | 'error';
+  provider: string;
+  catalog_url: string;
+  search_bbox: [number, number, number, number];
+  search_datetime?: string;
+  collection_requested: string;
+  total_results: number;
+  scenes: STACSceneSummary[];
+  message?: string;
+  error?: string;
+}
+
+export interface STACTaskCompatibility {
+  status: 'supported' | 'supported_with_limitations' | 'rejected';
+  reason: string;
+}
+
+export interface STACValidateAssetRequestPayload {
+  scene_id?: string;
+  asset_key?: string;
+  filename?: string;
+  data_base64?: string;
+  provenance?: Record<string, any>;
+}
+
+export interface STACValidateAssetResponsePayload {
+  status: 'valid' | 'invalid';
+  filename: string;
+  file_format: string;
+  asset_category: 'visual_preview' | 'rgb_visual_raster' | 'single_band_spectral' | 'multispectral_cube' | 'unsupported';
+  raster_metadata: Record<string, any>;
+  scientific_status: 'calibrated_surface_reflectance' | 'calibrated_sar_backscatter' | 'visual_display_only' | 'unverified';
+  analysis_compatibility: Record<string, STACTaskCompatibility>;
+  scientific_limitations: string[];
+  provenance: Record<string, any>;
+  error?: string | null;
+}
+
+export interface STACRetrieveRequestPayload {
+  scene_id: string;
+  asset_key: string;
+  collection?: string;
+  target_role?: 'primary' | 'secondary' | 'optical' | 'sar';
+  aoi_bbox?: [number, number, number, number] | number[];
+}
+
+export interface STACWindowedRetrieveRequestPayload {
+  scene_id: string;
+  asset_key: string;
+  aoi_bbox: [number, number, number, number] | number[];
+  collection?: string;
+  target_role?: 'primary' | 'secondary' | 'optical' | 'sar';
+  resampling?: 'nearest' | 'bilinear' | 'cubic' | 'lanczos';
+  screen_quality?: boolean;
+}
+
+export interface STACRetrieveResponsePayload {
+  status: 'success' | 'error';
+  scene_id: string;
+  asset_key: string;
+  category: 'visual_preview' | 'scientific_raster' | 'unsupported';
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  data_base64: string;
+  metadata: Record<string, any>;
+  scientific_limitations: string[];
+  quality_screening?: Record<string, any>;
+  validation?: STACValidateAssetResponsePayload;
+  provenance?: Record<string, any>;
+  error?: string;
+}
+
+export interface NDVIResultPayload {
+  status: string;
+  ndvi_mean?: number | null;
+  ndvi_p90?: number | null;
+  ndvi_median?: number | null;
+  vegetation_coverage_pct?: number | null;
+  valid_pixel_count?: number | null;
+  total_pixel_count?: number | null;
+  masked_pixel_count?: number | null;
+  vegetation_pixel_count?: number | null;
+  vegetation_threshold?: number;
+  preview_base64?: string | null;
+  calibration?: Record<string, any>;
+  validity_policy?: Record<string, any>;
+  scl_screening?: Record<string, any>;
+  error?: string | null;
+}
+
+export interface DpRVIResultPayload {
+  status: string;
+  is_calibrated?: boolean;
+  summary?: string;
+  dprvi_mean?: number | null;
+  dprvi_p90?: number | null;
+  dprvi_median?: number | null;
+  dprvi_min?: number | null;
+  dprvi_max?: number | null;
+  cross_pol_ratio_linear?: number | null;
+  cross_pol_ratio_db?: number | null;
+  vv_mean_linear?: number | null;
+  vh_mean_linear?: number | null;
+  vv_mean_db?: number | null;
+  vh_mean_db?: number | null;
+  vv_pixel_db_mean?: number | null;
+  vh_pixel_db_mean?: number | null;
+  vegetation_proxy_coverage_pct?: number | null;
+  vegetation_threshold?: number;
+  veg_pixel_count?: number;
+  valid_pixel_count?: number | null;
+  total_pixel_count?: number | null;
+  masked_pixel_count?: number | null;
+  colorized_preview_base64?: string | null;
+  preview_base64?: string | null;
+  polarization_mode?: string;
+  calibration?: Record<string, any>;
+  validity_policy?: Record<string, any>;
+  scientific_limitations?: string[];
+  error?: string | null;
+}
+
+export interface STACCompositeRetrieveRequestPayload {
+  scene_id: string;
+  aoi_bbox: [number, number, number, number] | number[];
+  bands?: string[];
+  include_scl?: boolean;
+  collection?: string;
+  target_role?: string;
+  max_bytes?: number;
+  compute_ndvi?: boolean;
+  compute_dprvi?: boolean;
+}
+
+export interface STACCompositeRetrieveResponsePayload {
+  status: 'success' | 'error';
+  scene_id: string;
+  collection: string;
+  category: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  data_base64: string;
+  metadata: Record<string, any>;
+  scientific_limitations: string[];
+  provenance: Record<string, any>;
+  bands_retrieved: string[];
+  ndvi_result?: NDVIResultPayload | null;
+  dprvi_result?: DpRVIResultPayload | null;
+  quality_screening?: Record<string, any> | null;
+  sar_quality_screening?: Record<string, any> | null;
+  validation?: STACValidateAssetResponsePayload;
+  error?: string;
+}
+
+export interface STACTemporalPairValidateRequestPayload {
+  t1_scene_id?: string;
+  t2_scene_id?: string;
+  t1_asset_key?: string;
+  t2_asset_key?: string;
+  t1_filename?: string;
+  t2_filename?: string;
+  t1_data_base64?: string;
+  t2_data_base64?: string;
+  t1_provenance?: Record<string, any>;
+  t2_provenance?: Record<string, any>;
+  t1_metadata?: Record<string, any>;
+  t2_metadata?: Record<string, any>;
+  aoi_bbox?: [number, number, number, number];
+}
+
+export interface STACTemporalPairValidateResponsePayload {
+  status: 'compatible' | 'compatible_with_limitations' | 'rejected';
+  is_compatible: boolean;
+  rejection_reason?: string | null;
+  t1_validation?: STACValidateAssetResponsePayload;
+  t2_validation?: STACValidateAssetResponsePayload;
+  t1_datetime?: string | null;
+  t2_datetime?: string | null;
+  temporal_delta_days?: number | null;
+  chronology_status: 'chronological' | 'inverted' | 'identical' | 'unknown';
+  spatial_overlap_pct?: number | null;
+  overlap_detected: boolean;
+  crs_compatible: boolean;
+  resolution_compatible: boolean;
+  modality_compatible: boolean;
+  co_registered: boolean;
+  warnings: string[];
+  scientific_limitations: string[];
+  candidate_providers: string[];
+  primary_provider: string;
+  fallback_status: string;
+  recommended_action: string;
+}
+
+export interface STACTemporalSearchRequestPayload {
+  bbox: [number, number, number, number];
+  t1_start_date: string;
+  t1_end_date: string;
+  t2_start_date: string;
+  t2_end_date: string;
+  collection?: string;
+  max_cloud_cover?: number;
+  limit?: number;
+}
+
+export interface STACTemporalSearchResponsePayload {
+  status: 'success' | 'partial' | 'zero_results';
+  provider: string;
+  search_bbox: [number, number, number, number];
+  t1_results: STACSearchResponsePayload;
+  t2_results: STACSearchResponsePayload;
+  temporal_delta_days_estimate?: number | null;
+  message?: string;
+}
+
+export interface STACOpticalSARPairValidateRequestPayload {
+  optical_scene_id?: string;
+  sar_scene_id?: string;
+  optical_asset_key?: string;
+  sar_asset_key?: string;
+  optical_filename?: string;
+  sar_filename?: string;
+  optical_data_base64?: string;
+  sar_data_base64?: string;
+  optical_provenance?: Record<string, any>;
+  sar_provenance?: Record<string, any>;
+  optical_metadata?: Record<string, any>;
+  sar_metadata?: Record<string, any>;
+  aoi_bbox?: [number, number, number, number];
+}
+
+export interface STACOpticalSARPairValidateResponsePayload {
+  status: 'compatible' | 'compatible_with_limitations' | 'rejected';
+  is_compatible: boolean;
+  rejection_reason?: string | null;
+  optical_validation?: STACValidateAssetResponsePayload;
+  sar_validation?: STACValidateAssetResponsePayload;
+  optical_datetime?: string | null;
+  sar_datetime?: string | null;
+  temporal_delta_days?: number | null;
+  spatial_overlap_pct?: number | null;
+  overlap_detected: boolean;
+  crs_compatible: boolean;
+  resolution_compatible: boolean;
+  modality_compatible: boolean;
+  co_registered: boolean;
+  sar_polarization?: string;
+  sar_sensor?: string;
+  sar_calibration_status: 'calibrated_backscatter' | 'unverified_linear_dn' | 'rejected';
+  sar_terrain_correction_status: 'radiometrically_terrain_corrected' | 'ellipsoid_geocoded_grd' | 'rejected';
+  warnings: string[];
+  scientific_limitations: string[];
+  candidate_providers: string[];
+  primary_provider: string;
+  fallback_status: string;
+  recommended_action: string;
+}
+
+export interface STACOpticalSARSearchRequestPayload {
+  bbox: [number, number, number, number];
+  optical_start_date?: string;
+  optical_end_date?: string;
+  sar_start_date?: string;
+  sar_end_date?: string;
+  max_cloud_cover?: number;
+  limit?: number;
+}
+
+export interface STACOpticalSARSearchResponsePayload {
+  status: 'success' | 'partial' | 'zero_results';
+  provider: string;
+  search_bbox: [number, number, number, number];
+  optical_results: STACSearchResponsePayload;
+  sar_results: STACSearchResponsePayload;
+  temporal_delta_days_estimate?: number | null;
+  message?: string;
+}
+
+export type CompositeInspectorLayerKey = 'b04_red' | 'b08_nir' | 'obs_depth' | 'scl_mask';
+export type CompositeInspectorPeriod = 't1' | 't2';
+
+export interface CompositeInspectorStats {
+  total_pixels: number;
+  valid_pixels: number;
+  masked_pixels: number;
+  clear_coverage_pct: number;
+  obs_depth_0_count: number;
+  obs_depth_1_count: number;
+  obs_depth_2plus_count: number;
+  mean_obs_depth: number;
+}
+
+export interface CompositeInspectorPeriodData {
+  status: 'success' | 'unavailable' | 'error';
+  reason?: string;
+  shape?: [number, number];
+  bounds?: AOIBounds;
+  crs?: string;
+  layers: {
+    b04_red?: string;
+    b08_nir?: string;
+    obs_depth?: string;
+    scl_mask?: string;
+  };
+  stats: CompositeInspectorStats;
+  contributing_scenes?: Array<{
+    scene_id: string;
+    datetime?: string;
+    cloud_cover?: number;
+    valid_pixel_count?: number;
+    valid_coverage_pct?: number;
+  }>;
+  rejected_scenes?: Array<{
+    scene_id?: string;
+    reason: string;
+  }>;
+  composite_method?: string;
+  scl_mask_policy?: Record<string, any>;
+}
+
+export interface CompositeInspectorData {
+  status: 'success' | 'unsupported_zero_valid_pixels' | 'unavailable' | 'error';
+  t1: CompositeInspectorPeriodData;
+  t2: CompositeInspectorPeriodData;
+  bounds?: AOIBounds;
+  crs?: string;
+  composite_method?: string;
+  scl_mask_policy?: Record<string, any>;
+}
+
+export interface MapOverlayConfig {
+  imageUrl: string;
+  bounds: AOIBounds;
+  opacity: number;
+  title: string;
+  layerKey?: CompositeInspectorLayerKey;
+  period?: CompositeInspectorPeriod;
+}
+
+
+
