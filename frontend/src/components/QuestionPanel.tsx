@@ -15,9 +15,10 @@ import {
   HelpCircle,
   Play
 } from 'lucide-react';
-import { AnalysisMode, AnalysisResponse, ChatMessage, WorkspaceContext } from '../types';
-import { sendChatMessage, checkChatHealth } from '../services/api';
+import { AnalysisMode, AnalysisResponse, ChatMessage, WorkspaceContext, ChatHealthResponse } from '../types';
+import { sendChatMessage, checkChatHealth, DEFAULT_RENDER_BACKEND_URL } from '../services/api';
 import { extractStructuredEvidence } from '../utils/evidenceExtractor';
+import ReactMarkdown from 'react-markdown';
 
 interface QuestionPanelProps {
   query: string;
@@ -45,17 +46,11 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [serverHealth, setServerHealth] = useState<{
-    status: 'online' | 'offline';
-    available: boolean;
-    provider: string;
-    base_url: string;
-    configured_model: string;
-  }>({
+  const [serverHealth, setServerHealth] = useState<ChatHealthResponse>({
     status: 'offline',
     available: false,
-    provider: 'LM Studio',
-    base_url: 'http://127.0.0.1:1234/v1',
+    provider: 'SatQuery Assistant',
+    base_url: `${DEFAULT_RENDER_BACKEND_URL}/api/v1`,
     configured_model: 'unavailable',
   });
   const [isCheckingHealth, setIsCheckingHealth] = useState<boolean>(false);
@@ -72,8 +67,8 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
       setServerHealth({
         status: 'offline',
         available: false,
-        provider: 'LM Studio',
-        base_url: 'http://127.0.0.1:1234/v1',
+        provider: 'Render Backend',
+        base_url: `${DEFAULT_RENDER_BACKEND_URL}/api/v1`,
         configured_model: 'unavailable',
       });
     } finally {
@@ -151,10 +146,10 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           {
             id: `ast_${Date.now()}`,
             role: 'assistant',
-            content: res.response || 'SatQuery AI local LLM is offline. Start LM Studio to enable conversational analysis.',
+            content: res.response || `${res.provider || 'Chat Subsystem'} is currently offline.`,
             timestamp: assistantTimestamp,
             status: 'unavailable',
-            provider: 'LM Studio',
+            provider: res.provider || serverHealth.provider || 'SatQuery Assistant',
             model: res.model || 'unavailable',
             error: res.error,
           },
@@ -169,7 +164,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
             content: res.response,
             timestamp: assistantTimestamp,
             status: 'success',
-            provider: res.provider || 'LM Studio',
+            provider: res.provider || serverHealth.provider || 'SatQuery Assistant',
             model: res.model,
           },
         ]);
@@ -181,10 +176,10 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
         {
           id: `ast_${Date.now()}`,
           role: 'assistant',
-          content: 'SatQuery AI local LLM is offline. Start LM Studio to enable conversational analysis.',
+          content: `SatQuery intelligence service error: ${err.message || 'Unable to connect to chat backend.'}`,
           timestamp: assistantTimestamp,
           status: 'unavailable',
-          provider: 'LM Studio',
+          provider: serverHealth.provider || 'Render Backend',
           model: 'unavailable',
           error: err.message,
         },
@@ -221,21 +216,31 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-100 font-mono tracking-wide">
-                SatQuery AI • Local LLM • LM Studio
+                SatQuery AI • {serverHealth.provider || 'Remote Sensing Assistant'}
               </span>
               <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                 serverHealth.status === 'online'
                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                  : 'bg-amber-950/80 text-amber-300 border-amber-800'
+                  : serverHealth.status === 'standby'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                  : 'bg-slate-900 text-slate-400 border-slate-700'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${
-                  serverHealth.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'
+                  serverHealth.status === 'online'
+                    ? 'bg-emerald-400'
+                    : serverHealth.status === 'standby'
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-rose-400'
                 }`} />
-                {serverHealth.status === 'online' ? 'LM Studio Online' : 'LM Studio Offline'}
+                {serverHealth.status === 'online'
+                  ? `${serverHealth.provider || 'Chat'} Ready`
+                  : serverHealth.status === 'standby'
+                  ? `${serverHealth.provider || 'Chat'} Standby`
+                  : `${serverHealth.provider || 'Chat'} Offline`}
               </span>
             </div>
             <p className="text-[10px] text-slate-400 font-mono">
-              Dedicated Local Subsystem • Zero Cloud Dependencies
+              Render FastAPI Intelligence Subsystem • Verified Evidence Grounding
             </p>
           </div>
         </div>
@@ -257,13 +262,15 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           <button
             onClick={verifyHealth}
             disabled={isCheckingHealth}
-            title="Probe LM Studio connectivity"
+            title="Probe chat connectivity"
             className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 transition-all text-xs"
           >
             {serverHealth.status === 'online' ? (
               <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+            ) : serverHealth.status === 'standby' ? (
+              <Wifi className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
             ) : (
-              <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+              <WifiOff className="w-3.5 h-3.5 text-rose-400" />
             )}
           </button>
 
@@ -290,18 +297,30 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
               Natural-Language Satellite Analysis Assistant
             </div>
             <p className="text-xs text-slate-300 leading-relaxed font-sans">
-              Welcome to <span className="text-cyan-300 font-semibold font-mono">SatQuery AI</span>. Ask questions about the current imagery, request feature localization, analyze bi-temporal changes, or explore spectral characteristics. Powered directly by your local LLM in LM Studio.
+              Welcome to <span className="text-cyan-300 font-semibold font-mono">SatQuery AI</span>. Ask questions about the current imagery, request feature localization, analyze bi-temporal changes, or explore spectral characteristics. Connected to the SatQuery intelligence service ({serverHealth.provider || 'Render Backend'}).
             </p>
 
-            {/* Offline Alert Box if LM Studio is offline */}
-            {serverHealth.status === 'offline' && (
-              <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-800/70 space-y-1.5 text-xs text-amber-200">
-                <div className="flex items-center gap-2 font-bold font-mono text-amber-300">
-                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  SatQuery AI local LLM is offline. Start LM Studio to enable conversational analysis.
+            {/* Status Alert Box if chat subsystem is not online */}
+            {serverHealth.status !== 'online' && (
+              <div className={`p-3.5 rounded-lg border space-y-1.5 text-xs ${
+                serverHealth.status === 'standby'
+                  ? 'bg-amber-950/30 border-amber-800/70 text-amber-200'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
+              }`}>
+                <div className={`flex items-center gap-2 font-bold font-mono ${
+                  serverHealth.status === 'standby' ? 'text-amber-300' : 'text-slate-200'
+                }`}>
+                  <AlertCircle className={`w-4 h-4 shrink-0 ${serverHealth.status === 'standby' ? 'text-amber-400' : 'text-amber-400'}`} />
+                  {serverHealth.status === 'standby'
+                    ? `${serverHealth.provider || 'Chat Assistant'} is warming up (Standby).`
+                    : `${serverHealth.provider || 'SatQuery AI'} chat service is currently offline.`}
                 </div>
-                <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                  Start LM Studio, load a local model, and ensure the local server is listening at <code className="bg-amber-950 px-1 py-0.5 rounded text-amber-200 font-mono">{serverHealth.base_url}</code>.
+                <p className="text-[11px] leading-relaxed text-slate-400">
+                  {serverHealth.status === 'standby'
+                    ? 'The model inference service is warming up. Remote GPU slices allocate upon request.'
+                    : serverHealth.base_url?.includes('127.0.0.1')
+                    ? `Local LLM server is not detected at ${serverHealth.base_url}. Start your local server or configure the remote intelligence assistant.`
+                    : `Inference endpoint (${serverHealth.provider || 'configured model'}) is currently offline on the backend (${serverHealth.base_url}). Perception pipeline analysis remains fully functional.`}
                 </p>
               </div>
             )}
@@ -364,15 +383,27 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 font-bold font-mono text-amber-300">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    SatQuery AI local LLM is offline. Start LM Studio to enable conversational analysis.
+                    {msg.provider ? `${msg.provider} is currently offline or unreachable.` : 'Chat Subsystem is currently offline.'}
                   </div>
-                  <p className="text-[11px] text-amber-200/90">{msg.content}</p>
-                  <p className="text-[10px] font-mono text-amber-400/70 pt-1 border-t border-amber-900/50">
-                    Endpoint: {serverHealth.base_url} • Status: Connection Refused / Offline
-                  </p>
+                  <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{msg.content}</p>
+                  {serverHealth.base_url && (
+                    <p className="text-[10px] font-mono text-amber-400/70 pt-1 border-t border-amber-900/50">
+                      Endpoint: {serverHealth.base_url} • Status: Unavailable
+                    </p>
+                  )}
+                  <div className="pt-1.5 flex items-center gap-2">
+                    <button
+                      onClick={() => handleSendChatMessage([...messages].reverse().find((m) => m.role === 'user')?.content)}
+                      className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 transition-all"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5" /> Retry Query
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                <div className="prose prose-invert prose-xs max-w-none">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
               )}
             </div>
           </div>
@@ -389,7 +420,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
             </div>
             <div className="rounded-xl rounded-tl-none p-3.5 bg-slate-950/80 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 shadow-md">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-              <span>SatQuery AI is synthesizing satellite analysis via LM Studio...</span>
+              <span>SatQuery AI is synthesizing satellite analysis...</span>
             </div>
           </div>
         )}
@@ -439,7 +470,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           
           <div className="text-[10px] font-mono text-slate-400">
-            Press <kbd className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">Enter</kbd> to chat with LM Studio
+            Press <kbd className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">Enter</kbd> to send chat message
           </div>
 
           <div className="flex items-center gap-2">

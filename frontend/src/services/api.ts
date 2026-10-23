@@ -1,15 +1,28 @@
 import type { AnalysisMode, AnalysisResponse, BenchmarkResult, UploadedFileState } from '../types/index.ts';
 
+export const DEFAULT_RENDER_BACKEND_URL = 'https://sat-query-backend.onrender.com';
+
 function getApiBaseUrl(): string {
   const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
-  const envUrl = (env?.VITE_API_BASE_URL || (typeof process !== 'undefined' ? process.env?.VITE_API_BASE_URL : '') || '').trim().replace(/\/+$/, '');
-  if (!envUrl) {
-    if (typeof window === 'undefined') {
-      return 'http://127.0.0.1:8000/api/v1';
-    }
-    return '/api/v1';
+  const envUrl = (
+    env?.VITE_API_BASE_URL ||
+    (typeof process !== 'undefined' ? process.env?.VITE_API_BASE_URL : '') ||
+    ''
+  ).trim().replace(/\/+$/, '');
+
+  if (envUrl) {
+    return envUrl.endsWith('/api/v1') ? envUrl : `${envUrl}/api/v1`;
   }
-  return envUrl.endsWith('/api/v1') ? envUrl : `${envUrl}/api/v1`;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return '/api/v1';
+    }
+    return `${DEFAULT_RENDER_BACKEND_URL}/api/v1`;
+  }
+
+  return `${DEFAULT_RENDER_BACKEND_URL}/api/v1`;
 }
 
 export const API_BASE = getApiBaseUrl();
@@ -210,8 +223,8 @@ export async function checkChatHealth(): Promise<import('../types').ChatHealthRe
     return {
       status: 'offline',
       available: false,
-      provider: 'LM Studio',
-      base_url: 'http://127.0.0.1:1234/v1',
+      provider: 'Render Backend',
+      base_url: `${DEFAULT_RENDER_BACKEND_URL}/api/v1`,
       configured_model: 'unavailable'
     };
   }
