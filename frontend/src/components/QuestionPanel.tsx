@@ -47,13 +47,15 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
   const [chatInput, setChatInput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [serverHealth, setServerHealth] = useState<ChatHealthResponse>({
-    status: 'offline',
+    status: 'standby',
     available: false,
-    provider: 'SatQuery Assistant',
+    provider: 'Hugging Face Spaces',
+    configured_model: 'Qwen/Qwen2.5-VL-3B-Instruct',
+    space_id: 'Astro406/satquery-qwen-vl',
+    stage: 'CONNECTING',
     base_url: `${DEFAULT_RENDER_BACKEND_URL}/api/v1`,
-    configured_model: 'unavailable',
   });
-  const [isCheckingHealth, setIsCheckingHealth] = useState<boolean>(false);
+  const [isCheckingHealth, setIsCheckingHealth] = useState<boolean>(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -67,9 +69,11 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
       setServerHealth({
         status: 'offline',
         available: false,
-        provider: 'Render Backend',
+        provider: 'Hugging Face Spaces',
+        configured_model: 'Qwen/Qwen2.5-VL-3B-Instruct',
+        space_id: 'Astro406/satquery-qwen-vl',
+        stage: 'OFFLINE',
         base_url: `${DEFAULT_RENDER_BACKEND_URL}/api/v1`,
-        configured_model: 'unavailable',
       });
     } finally {
       setIsCheckingHealth(false);
@@ -104,7 +108,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
     setChatInput('');
   };
 
-  // Submit a chat message to the local LM Studio endpoint
+  // Submit a chat message to the Hugging Face Spaces Qwen-VL endpoint
   const handleSendChatMessage = async (textToSend?: string) => {
     const text = (textToSend || chatInput).trim();
     if (!text || isGenerating) return;
@@ -139,19 +143,18 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
 
       const assistantTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-      if (res.status === 'unavailable') {
-        setServerHealth((prev) => ({ ...prev, status: 'offline', available: false }));
+      if (res.status === 'unavailable' || res.status === 'error') {
         setMessages((prev) => [
           ...prev,
           {
             id: `ast_${Date.now()}`,
             role: 'assistant',
-            content: res.response || `${res.provider || 'Chat Subsystem'} is currently offline.`,
+            content: res.response || res.error || `${res.provider || 'Hugging Face Spaces'} is currently unavailable.`,
             timestamp: assistantTimestamp,
             status: 'unavailable',
-            provider: res.provider || serverHealth.provider || 'SatQuery Assistant',
-            model: res.model || 'unavailable',
-            error: res.error,
+            provider: res.provider || serverHealth.provider || 'Hugging Face Spaces',
+            model: res.model || serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct',
+            error: res.error || undefined,
           },
         ]);
       } else {
@@ -164,13 +167,14 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
             content: res.response,
             timestamp: assistantTimestamp,
             status: 'success',
-            provider: res.provider || serverHealth.provider || 'SatQuery Assistant',
-            model: res.model,
+            provider: res.provider || serverHealth.provider || 'Hugging Face Spaces',
+            model: res.model || serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct',
           },
         ]);
       }
     } catch (err: any) {
       const assistantTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setServerHealth((prev) => ({ ...prev, status: 'offline', available: false }));
       setMessages((prev) => [
         ...prev,
         {
@@ -179,8 +183,8 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           content: `SatQuery intelligence service error: ${err.message || 'Unable to connect to chat backend.'}`,
           timestamp: assistantTimestamp,
           status: 'unavailable',
-          provider: serverHealth.provider || 'Render Backend',
-          model: 'unavailable',
+          provider: serverHealth.provider || 'Hugging Face Spaces',
+          model: serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct',
           error: err.message,
         },
       ]);
@@ -216,7 +220,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-100 font-mono tracking-wide">
-                SatQuery AI • {serverHealth.provider || 'Remote Sensing Assistant'}
+                SatQuery AI • {serverHealth.provider || 'Hugging Face Spaces'}
               </span>
               <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                 serverHealth.status === 'online'
@@ -233,15 +237,28 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
                     : 'bg-rose-400'
                 }`} />
                 {serverHealth.status === 'online'
-                  ? `${serverHealth.provider || 'Chat'} Ready`
+                  ? `${serverHealth.provider || 'Hugging Face Spaces'} Ready`
                   : serverHealth.status === 'standby'
-                  ? `${serverHealth.provider || 'Chat'} Standby`
-                  : `${serverHealth.provider || 'Chat'} Offline`}
+                  ? `${serverHealth.provider || 'Hugging Face Spaces'} Standby`
+                  : `${serverHealth.provider || 'Hugging Face Spaces'} Offline`}
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-mono">
-              Render FastAPI Intelligence Subsystem • Verified Evidence Grounding
-            </p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">
+              <span className="text-cyan-300 font-medium">
+                {serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct'}
+              </span>
+              {serverHealth.stage && (
+                <span className="px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[9px]">
+                  Stage: {serverHealth.stage}
+                </span>
+              )}
+              {serverHealth.hardware && (
+                <span className="px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[9px]">
+                  {serverHealth.hardware}
+                </span>
+              )}
+              <span className="text-slate-500 hidden sm:inline">• Verified Evidence Grounding</span>
+            </div>
           </div>
         </div>
 
@@ -262,10 +279,12 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
           <button
             onClick={verifyHealth}
             disabled={isCheckingHealth}
-            title="Probe chat connectivity"
-            className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 transition-all text-xs"
+            title={isCheckingHealth ? 'Probing chat connectivity...' : 'Probe chat connectivity'}
+            className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 transition-all text-xs disabled:opacity-50"
           >
-            {serverHealth.status === 'online' ? (
+            {isCheckingHealth ? (
+              <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+            ) : serverHealth.status === 'online' ? (
               <Wifi className="w-3.5 h-3.5 text-emerald-400" />
             ) : serverHealth.status === 'standby' ? (
               <Wifi className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
@@ -297,11 +316,19 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
               Natural-Language Satellite Analysis Assistant
             </div>
             <p className="text-xs text-slate-300 leading-relaxed font-sans">
-              Welcome to <span className="text-cyan-300 font-semibold font-mono">SatQuery AI</span>. Ask questions about the current imagery, request feature localization, analyze bi-temporal changes, or explore spectral characteristics. Connected to the SatQuery intelligence service ({serverHealth.provider || 'Render Backend'}).
+              Welcome to <span className="text-cyan-300 font-semibold font-mono">SatQuery AI</span>. Ask questions about the current imagery, request feature localization, analyze bi-temporal changes, or explore spectral characteristics. Powered by{' '}
+              <span className="text-cyan-300 font-semibold font-mono">
+                {serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct'}
+              </span>{' '}
+              hosted on{' '}
+              <span className="text-cyan-300 font-semibold font-mono">
+                {serverHealth.provider || 'Hugging Face Spaces'}
+              </span>
+              {serverHealth.space_id ? ` (${serverHealth.space_id})` : ''}.
             </p>
 
             {/* Status Alert Box if chat subsystem is not online */}
-            {serverHealth.status !== 'online' && (
+            {serverHealth.status !== 'online' && !isCheckingHealth && (
               <div className={`p-3.5 rounded-lg border space-y-1.5 text-xs ${
                 serverHealth.status === 'standby'
                   ? 'bg-amber-950/30 border-amber-800/70 text-amber-200'
@@ -310,17 +337,15 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
                 <div className={`flex items-center gap-2 font-bold font-mono ${
                   serverHealth.status === 'standby' ? 'text-amber-300' : 'text-slate-200'
                 }`}>
-                  <AlertCircle className={`w-4 h-4 shrink-0 ${serverHealth.status === 'standby' ? 'text-amber-400' : 'text-amber-400'}`} />
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
                   {serverHealth.status === 'standby'
-                    ? `${serverHealth.provider || 'Chat Assistant'} is warming up (Standby).`
-                    : `${serverHealth.provider || 'SatQuery AI'} chat service is currently offline.`}
+                    ? `${serverHealth.provider || 'Hugging Face Spaces'} is in standby / warming up.`
+                    : `${serverHealth.provider || 'Hugging Face Spaces'} inference service is currently offline.`}
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-400">
                   {serverHealth.status === 'standby'
-                    ? 'The model inference service is warming up. Remote GPU slices allocate upon request.'
-                    : serverHealth.base_url?.includes('127.0.0.1')
-                    ? `Local LLM server is not detected at ${serverHealth.base_url}. Start your local server or configure the remote intelligence assistant.`
-                    : `Inference endpoint (${serverHealth.provider || 'configured model'}) is currently offline on the backend (${serverHealth.base_url}). Perception pipeline analysis remains fully functional.`}
+                    ? `The remote model inference service on ${serverHealth.provider || 'Hugging Face Spaces'}${serverHealth.space_id ? ` (${serverHealth.space_id})` : ''} is currently in standby (Stage: ${serverHealth.stage || 'STANDBY'}). Remote GPU slices allocate upon request.`
+                    : `Inference endpoint (${serverHealth.provider || 'Hugging Face Spaces'} • ${serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct'}) is currently unreachable on backend (${serverHealth.base_url || DEFAULT_RENDER_BACKEND_URL}). Perception pipeline analysis remains fully functional.`}
                 </p>
               </div>
             )}
@@ -358,8 +383,13 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
                 <>
                   <Bot className="w-3 h-3 text-cyan-400" />
                   <span className="font-bold text-cyan-300">SatQuery AI</span>
+                  {msg.provider && (
+                    <span className="px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800 text-[9px] font-mono">
+                      {msg.provider}
+                    </span>
+                  )}
                   {msg.model && (
-                    <span className="px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[9px]">
+                    <span className="px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[9px] font-mono">
                       {msg.model}
                     </span>
                   )}
@@ -380,15 +410,15 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
               }`}
             >
               {msg.status === 'unavailable' ? (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 font-bold font-mono text-amber-300">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    {msg.provider ? `${msg.provider} is currently offline or unreachable.` : 'Chat Subsystem is currently offline.'}
+                    {msg.provider ? `${msg.provider} Notice` : 'Inference Subsystem Notice'}
                   </div>
                   <p className="text-[11px] text-amber-200/90 whitespace-pre-wrap">{msg.content}</p>
-                  {serverHealth.base_url && (
+                  {(msg.model || serverHealth.space_id) && (
                     <p className="text-[10px] font-mono text-amber-400/70 pt-1 border-t border-amber-900/50">
-                      Endpoint: {serverHealth.base_url} • Status: Unavailable
+                      Model: {msg.model || serverHealth.configured_model || 'Qwen/Qwen2.5-VL-3B-Instruct'} • Space: {serverHealth.space_id || 'Astro406/satquery-qwen-vl'}
                     </p>
                   )}
                   <div className="pt-1.5 flex items-center gap-2">

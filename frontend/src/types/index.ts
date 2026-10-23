@@ -495,9 +495,11 @@ export interface ChatResponsePayload {
   response: string;
   model: string;
   provider: string;
-  status: 'success' | 'unavailable' | 'error';
-  conversation_id?: string;
+  status: 'success' | 'unavailable' | 'error' | 'standby';
+  conversation_id?: string | null;
   error?: string | null;
+  space_id?: string | null;
+  duration_sec?: number | null;
 }
 
 export interface ChatHealthResponse {
@@ -508,6 +510,7 @@ export interface ChatHealthResponse {
   configured_model?: string;
   space_id?: string;
   stage?: string;
+  hardware?: string;
 }
 
 export interface STACAssetSummary {
